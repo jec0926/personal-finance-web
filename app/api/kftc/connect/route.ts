@@ -11,9 +11,9 @@ export async function GET() {
     );
   }
 
-  const clientId = process.env.KFTC_CLIENT_ID;
-  const baseUrl = process.env.KFTC_BASE_URL;
-  const redirectUri = process.env.KFTC_REDIRECT_URI;
+  const clientId = process.env.KFTC_CLIENT_ID?.trim();
+  const baseUrl = process.env.KFTC_BASE_URL?.trim();
+  const redirectUri = process.env.KFTC_REDIRECT_URI?.trim();
 
   if (!clientId || !baseUrl || !redirectUri) {
     return NextResponse.json(
@@ -33,14 +33,19 @@ export async function GET() {
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", clientId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-
-  // 조회만 필요하므로 최소 권한
   authorizeUrl.searchParams.set("scope", "login inquiry");
-
   authorizeUrl.searchParams.set("state", state);
-
-  // 최초 인증
   authorizeUrl.searchParams.set("auth_type", "0");
+
+  console.log("KFTC OAuth request", {
+    baseUrl,
+    redirectUri,
+    clientIdLength: clientId.length,
+    clientIdLast6: clientId.slice(-6),
+    scope: "login inquiry",
+    stateLength: state.length,
+    authType: "0",
+  });
 
   const response = NextResponse.redirect(authorizeUrl);
 
