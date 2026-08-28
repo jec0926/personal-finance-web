@@ -1,5 +1,39 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+
+function getKstDateTime() {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const iso = now.toISOString();
+
+  return {
+    date: iso.slice(0, 10).replaceAll("-", ""),
+    time: iso.slice(11, 19).replaceAll(":", ""),
+    datetime:
+      iso.slice(0, 10).replaceAll("-", "") +
+      iso.slice(11, 19).replaceAll(":", ""),
+  };
+}
+
+function getKstDateDaysAgo(days: number) {
+  const date = new Date(
+    Date.now() + 9 * 60 * 60 * 1000 - days * 24 * 60 * 60 * 1000
+  );
+
+  return date.toISOString().slice(0, 10).replaceAll("-", "");
+}
+
+function makeBankTranId(useOrgCode: string) {
+  const randomPart = crypto
+    .randomInt(0, 1_000_000_000)
+    .toString()
+    .padStart(9, "0");
+
+  return `${useOrgCode}U${randomPart}`;
+}
+
+
+
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -152,44 +186,199 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+const useOrgCode = process.env.KFTC_USE_ORG_CODE?.trim();
+
+if (!useOrgCode || useOrgCode.length !== 10) {
+  return NextResponse.json(
+    {
+      success: false,
+      stage: "kftc_config",
+      error: "KFTC_USE_ORG_CODE가 없거나 10자리가 아닙니다.",
+    },
+    { status: 500 }
+  );
+}
+
+  const firstAccount = meData.res_list?.[0];
+
+  if (!firstAccount?.fintech_use_num) {
+    return NextResponse.json(
+      {
+        success: false,
+        stage: "account",
+        error: "조회 가능한 fintech_use_num이 없습니다.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const fintechUseNum = firstAccount.fintech_use_num;
+  const now = getKstDateTime();
+
+  const balanceUrl = new URL(
+  "/v2.0/account/balance/fin_num",
+  baseUrl
+);
+
+  balanceUrl.searchParams.set(
+    "bank_tran_id",
+    makeBankTranId(useOrgCode)
+  );
+
+  balanceUrl.searchParams.set(
+    "fintech_use_num",
+    fintechUseNum
+  );
+
+  balanceUrl.searchParams.set(
+    "tran_dtime",
+    now.datetime
+  );
+
+  const balanceResponse = await fetch(balanceUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  const balanceData = await balanceResponse.json();
+
+  const transactionUrl = new URL(
+  "/v2.0/account/transaction_list/fin_num",
+  baseUrl
+  );
+
+  transactionUrl.searchParams.set(
+    "bank_tran_id",
+    makeBankTranId(useOrgCode)
+  );
+
+  transactionUrl.searchParams.set(
+    "fintech_use_num",
+    fintechUseNum
+  );
+
+  transactionUrl.searchParams.set(
+    "inquiry_type",
+    "A"
+  );
+
+  transactionUrl.searchParams.set(
+    "inquiry_base",
+    "D"
+  );
+
+  transactionUrl.searchParams.set(
+    "from_date",
+    getKstDateDaysAgo(7)
+  );
+
+  transactionUrl.searchParams.set(
+    "from_time",
+    "000000"
+  );
+
+  transactionUrl.searchParams.set(
+    "to_date",
+    now.date
+  );
+
+  transactionUrl.searchParams.set(
+    "to_time",
+    "235959"
+  );
+
+  transactionUrl.searchParams.set(
+    "sort_order",
+    "D"
+  );
+
+  transactionUrl.searchParams.set(
+    "tran_dtime",
+    now.datetime
+  );
+
+  const transactionResponse = await fetch(
+    transactionUrl,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  const transactionData =
+    await transactionResponse.json();
 
   //
   // Token 원문은 절대로 브라우저에 반환하지 않음
   //
-  const accounts = Array.isArray(meData.res_list)
-    ? meData.res_list.map((account: any) => ({
-        bankName: account.bank_name,
-        accountAlias: account.account_alias,
-        accountMasked: account.account_num_masked,
-        accountType: account.account_type,
-        inquiryAgreeYn: account.inquiry_agree_yn,
+  const transactions = Array.isArray(
+  transactionData.res_list
+)
+  ? transactionData.res_list.map((tx: any) => ({
+      date: tx.tran_date,
+      time: tx.tran_time,
+      inoutType: tx.inout_type,
+      transactionType: tx.tran_type,
 
-        // 검증 단계에서는 일부만 표시
-        fintechUseNumExists:
-          Boolean(account.fintech_use_num),
-      }))
-    : [];
+      printContent:
+        tx.print_content ??
+        tx.printed_content ??
+        "",
 
-  const response = NextResponse.json({
-    success: true,
+      amount: tx.tran_amt,
+      afterBalance: tx.after_balance_amt,
+      branchName: tx.branch_name,
+    }))
+  : [];
 
-    oauth: {
-      accessTokenIssued: Boolean(accessToken),
-      refreshTokenIssued: Boolean(
-        tokenData.refresh_token
-      ),
-      userSeqNoIssued: Boolean(userSeqNo),
-    },
+const response = NextResponse.json({
+  success: true,
 
-    user: {
-      userName: meData.user_name,
-      accountCount: accounts.length,
-    },
+  account: {
+    bankName: firstAccount.bank_name,
+    accountAlias: firstAccount.account_alias,
+    accountMasked:
+      firstAccount.account_num_masked,
+  },
 
-    accounts,
-  });
+  balance: {
+    rspCode: balanceData.rsp_code,
+    rspMessage: balanceData.rsp_message,
+    bankRspCode: balanceData.bank_rsp_code,
+    bankRspMessage:
+      balanceData.bank_rsp_message,
 
-  response.cookies.delete("kftc_oauth_state");
+    balanceAmount: balanceData.balance_amt,
+    availableAmount:
+      balanceData.available_amt,
 
-  return response;
-}
+    productName: balanceData.product_name,
+    lastTransactionDate:
+      balanceData.last_tran_date,
+  },
+
+  transactionQuery: {
+    rspCode: transactionData.rsp_code,
+    rspMessage: transactionData.rsp_message,
+    bankRspCode:
+      transactionData.bank_rsp_code,
+    bankRspMessage:
+      transactionData.bank_rsp_message,
+
+    recordCount:
+      transactionData.page_record_cnt,
+
+    nextPage:
+      transactionData.next_page_yn,
+  },
+
+  transactions,
+});
+
+response.cookies.delete("kftc_oauth_state");
+
+return response;
