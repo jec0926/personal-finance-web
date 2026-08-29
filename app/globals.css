@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8fa;
+  --foreground: #17191c;
+  --surface: #ffffff;
+  --muted: #68707d;
+  --line: #e5e7eb;
+  --accent: #1f5eff;
 }
 
 @theme inline {
@@ -12,15 +16,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), "Pretendard", "Noto Sans KR", Arial, sans-serif;
+  font-feature-settings: "tnum" 1, "cv02" 1, "cv03" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+::selection { background: #dbe7ff; color: #163a84; }
+
+@layer components {
+  .finance-page { @apply min-h-screen px-4 py-6 sm:px-6 lg:px-10 lg:py-9; }
+  .finance-container { @apply mx-auto w-full max-w-[1440px]; }
+  .finance-kicker { @apply text-xs font-semibold tracking-[0.08em] text-gray-500; }
+  .finance-title { @apply mt-2 text-[28px] font-semibold tracking-[-0.035em] text-gray-950 sm:text-[32px]; }
+  .finance-description { @apply mt-2 max-w-2xl text-sm leading-6 text-gray-500; }
+  .finance-section-title { @apply text-base font-semibold tracking-[-0.015em] text-gray-950; }
+  .finance-control { @apply min-h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100; }
+  .finance-primary { @apply inline-flex min-h-10 items-center justify-center rounded-lg bg-gray-950 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-40; }
+  .finance-secondary { @apply inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50; }
+  .finance-panel { @apply border border-gray-200 bg-white; }
 }

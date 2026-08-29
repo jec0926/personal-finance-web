@@ -1,0 +1,10 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "개인 자산관리" [level=1] [ref=e5]
+        - paragraph [ref=e6]: 등록된 Google 계정으로 로그인해주세요.
+      - button "Google 계정으로 로그인" [ref=e8]
+      - paragraph [ref=e9]: 허용된 계정만 접근할 수 있습니다.
+  - button "Open Next.js Dev Tools" [ref=e15] [cursor=pointer]
+  - alert [ref=e19]
